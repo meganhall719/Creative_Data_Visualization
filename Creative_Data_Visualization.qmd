@@ -1,0 +1,131 @@
+---
+title: "Creative_Data_Visualization"
+format: html
+editor: visual
+---
+
+# Creative Data Visualization
+
+### Combining my research with my favorite Album of 2025 BRAT by Charlie XCX 
+
+```{r}
+library(knitr)
+#| out-width: "##%"
+knitr::include_graphics("Images/BRAT album cover.png")
+```
+
+### BRAT has 14 Tracks they are the following 
+
+1.  360
+
+2.  Club classics
+
+3.  Sympathy. is a knife
+
+4.  I might say something stupid
+
+5.  Talk talk
+
+6.  Von dutch
+
+7.  Everything is romantic
+
+8.  Rewind
+
+9.  So I
+
+10.  Girl, so confusing
+
+11. Apple
+
+12. B2b
+
+13. Mean girls
+
+14. I think about it all the time
+
+15. 365
+
+## Transforming this tracklist into tibble
+
+```{r}
+# Load required packages
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Create a tibble with the track information
+brat_tracks <- tibble(
+  track_number = 1:15,
+  title = c(
+    "360",
+    "Club classics",
+    "Sympathy is a knife",
+    "I might say something stupid",
+    "Talk talk",
+    "Von dutch",
+    "Everything is romantic",
+    "Rewind",
+    "So I",
+    "Girl, so confusing",
+    "Apple",
+    "B2b",
+    "Mean girls",
+    "I think about it all the time",
+    "365"
+  )
+)
+  
+head(brat_tracks) 
+brat_tracks
+```
+
+## Input my data 
+#### you may be curious what is my data what do I do? I am in a behavior neuroscience lab and a molecular neuroscience lab. My project is specifcally interested in fear conditioning and fear extinction learning and measuring the percentage freezing. The leaarning paradimgs associated with fear extinction is the utilized by therapies for PTSD. We have seen that psycedillcs....
+
+### That being said: Input real Fear Extinction Data 
+```{r}
+library(dplyr)
+library(tidyverse)
+
+f <-"https://raw.githubusercontent.com/meganhall719/Creative_Data_Visualization/refs/heads/main/Raw%20Fear%20Extinction%20Data/Fear%20Extinction%20Creative%20Data%20.csv"
+
+d <- read_csv(f, col_names = TRUE)
+
+head(d)
+
+
+```
+ 
+```{r}
+# Function to map freezing percentages to track numbers
+map_freezing_to_tracks <- function(freezing_data, track_data, max_tracks = 15) {
+  # Create mapping function
+  get_track_num <- function(freeze_pct) {
+    # Map freezing percentage to track number (1-15)
+    track <- ceiling(freeze_pct / 100 * max_tracks)
+    # Ensure it's within valid range
+    track <- pmin(pmax(track, 1), max_tracks)
+    return(track)
+  }
+  
+  # Apply the mapping to create a new column
+  mapped_data <- d %>%
+    mutate(
+      Track_Num = get_track_num(Freezing_Percent),
+      Track_Status = ifelse(Track_Num < 1, "not_Brat", "Brat")
+    )
+  
+  # Join with track data to get track names
+  result <- mapped_data %>%
+    left_join(track_data, by = c("Track_Num" = "track_num")) %>%
+    mutate(
+      # If track is out of range, mark as not_Brat
+      track_name = ifelse(is.na(track_name), "not_Brat", track_name)
+    )
+  
+  return(result)
+}
+
+
+```
