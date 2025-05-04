@@ -6,7 +6,7 @@ editor: visual
 
 # Creative Data Visualization
 
-### Combining my research with my favorite Album of 2025 BRAT by Charlie XCX 
+### Combining my research with my favorite Album released June 4, 2024 [**BRAT**]{.underline} by Charlie XCX
 
 ```{r}
 library(knitr)
@@ -14,7 +14,7 @@ library(knitr)
 knitr::include_graphics("Images/BRAT album cover.png")
 ```
 
-### BRAT has 14 Tracks they are the following 
+### BRAT has 14 Tracks they are the following
 
 1.  360
 
@@ -34,7 +34,7 @@ knitr::include_graphics("Images/BRAT album cover.png")
 
 9.  So I
 
-10.  Girl, so confusing
+10. Girl, so confusing
 
 11. Apple
 
@@ -46,7 +46,7 @@ knitr::include_graphics("Images/BRAT album cover.png")
 
 15. 365
 
-## Transforming this tracklist into tibble
+## Transforming this track list into a tibble
 
 ```{r}
 # Load required packages
@@ -80,10 +80,18 @@ head(brat_tracks)
 brat_tracks
 ```
 
-## Input my data 
-#### you may be curious what is my data what do I do? I am in a behavior neuroscience lab and a molecular neuroscience lab. My project is specifcally interested in fear conditioning and fear extinction learning and measuring the percentage freezing. The leaarning paradimgs associated with fear extinction is the utilized by therapies for PTSD. We have seen that psycedillcs....
+## Input my data
 
-### That being said: Input real Fear Extinction Data 
+#### you may be curious what is my data what do I do? 
+
+I’m inputting behavioral data from mice, specifically focusing on fear extinction. My project examines how freezing behavior changes during fear conditioning and extinction learning.
+
+During fear conditioning, a neutral stimulus (like a tone or light) is paired with an aversive stimulus (such as a mild foot shock). Over time, the mice learn to associate the neutral stimulus with the shock, which leads to an increase in freezing behavior when the conditioned stimulus is presented alone. This increase in freezing indicates successful fear learning.
+
+During **fear extinction** , the conditioned stimulus (tone/light) is presented repeatedly without the shock, helping the mice learn that the stimulus no longer predicts danger. As extinction occurs, the freezing behavior decreases, reflecting successful extinction learning. This process doesn't erase the original fear memory but instead forms a new "safety" memory. The pattern of increased freezing after conditioning, followed by decreased freezing during extinction, serves as a key behavioral signature for studying fear learning and extinction, which is relevant to exposure therapy for PTSD and anxiety disorders.
+
+### That being said: Input real Fear Extinction Data from my work
+
 ```{r}
 library(dplyr)
 library(tidyverse)
@@ -96,36 +104,334 @@ head(d)
 
 
 ```
- 
+
+# Creative Data Visualization Part
+
+### mapping function to link freezing percentages to song titles:
+
 ```{r}
-# Function to map freezing percentages to track numbers
-map_freezing_to_tracks <- function(freezing_data, track_data, max_tracks = 15) {
-  # Create mapping function
-  get_track_num <- function(freeze_pct) {
-    # Map freezing percentage to track number (1-15)
-    track <- ceiling(freeze_pct / 100 * max_tracks)
-    # Ensure it's within valid range
-    track <- pmin(pmax(track, 1), max_tracks)
-    return(track)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(patchwork)
+
+# the mapping function
+map_freezing_to_songs_ranges <- function(freezing_percent, track_list) {
+  # Handle NA values
+  if(is.na(freezing_percent)) {
+    return(NA)
   }
   
-  # Apply the mapping to create a new column
-  mapped_data <- d %>%
-    mutate(
-      Track_Num = get_track_num(Freezing_Percent),
-      Track_Status = ifelse(Track_Num < 1, "not_Brat", "Brat")
-    )
+  # If freezing percent is 0, return "Not BRAT"
+  if(freezing_percent == 0) {
+    return("Not BRAT")
+  }
   
-  # Join with track data to get track names
-  result <- mapped_data %>%
-    left_join(track_data, by = c("Track_Num" = "track_num")) %>%
-    mutate(
-      # If track is out of range, mark as not_Brat
-      track_name = ifelse(is.na(track_name), "not_Brat", track_name)
-    )
+  # Define ranges (0-100% divided into 15 equal parts)
+  bin_size <- 100 / 15
+  song_ranges <- data.frame(
+    lower = seq(0, 100 - bin_size, by = bin_size),
+    upper = seq(bin_size, 100, by = bin_size),
+    track_idx = 1:15
+  )
   
-  return(result)
+  # Find which range the freezing percentage falls into
+  track_idx <- which(freezing_percent >= song_ranges$lower & 
+                    freezing_percent < song_ranges$upper)
+  
+  # If it's above the highest range, use the last track
+  if(length(track_idx) == 0 && freezing_percent >= 100) {
+    track_idx <- 15
+  }
+  
+  # If no match found, return NA
+  if(length(track_idx) == 0) {
+    return(NA)
+  }
+  
+  # Return the corresponding track title
+  return(track_list$title[track_idx])
 }
 
+# Apply the mapping to the data
+d <- d %>%
+  mutate(
+    song_idx = sapply(`Freezing %`, function(x) {
+      if(is.na(x)) return(NA)
+      bin_size <- 93 / 15
+      idx <- floor(x / bin_size) + 1
+      if(idx > 15) idx <- 15
+      return(idx)
+    }),
+    song_representation = sapply(`Freezing %`, 
+                                map_freezing_to_songs_ranges, 
+                                track_list = brat_tracks)
+  )
 
 ```
+
+### Define the plotting function for individual mice:
+
+```{r}
+# Set color scheme to BRAT 
+brat_green <- "#ACFF33"  
+brat_black <- "#0A0A0A"  
+
+# Function to create plots for individual mice
+create_mouse_plot <- function(mouse_num, data) {
+  mouse_data <- data %>% filter(Mouse == mouse_num)
+  
+  mouse_plot <- ggplot(mouse_data, aes(x = Trial, y = `Freezing %`, fill = song_idx)) +
+    geom_bar(stat = "identity", width = 0.7, color = "#333333") +
+    scale_fill_gradient(low = brat_green, high = "#004000", 
+                       name = "Brat Track",
+                       breaks = 1:15,
+                       labels = paste0(1:15, ": ", brat_tracks$title[1:15]),
+                       guide = "none") +
+    # Song titles angled above bars
+    geom_text(aes(label = song_representation, y = `Freezing %` + 2), 
+              size = 2.5, color = brat_green, fontface = "bold", 
+              angle = 45, hjust = 0, vjust = 0) +
+    # Percentage values inside bars
+    geom_text(aes(label = paste0(round(`Freezing %`, 1), "%"), y = `Freezing %` / 2), 
+              size = 3, color = "white", fontface = "bold") +
+    labs(title = paste("MOUSE", mouse_num, "- FEAR EXTINCTION × BRAT"),
+         subtitle = "Freezing % mapped to Charli XCX Brat tracks",
+         x = "Trial", 
+         y = "Freezing %") +
+    theme_minimal() +
+    ylim(0, 100) +
+    theme(
+      plot.title = element_text(face = "bold", size = 16, color = brat_green, hjust = 0.5),
+      plot.subtitle = element_text(size = 12, color = brat_green, hjust = 0.5),
+      plot.background = element_rect(fill = brat_black, color = NA),
+      panel.background = element_rect(fill = brat_black, color = NA),
+      panel.grid.major = element_line(color = "#333333", size = 0.2),
+      panel.grid.minor = element_line(color = "#222222", size = 0.1),
+      text = element_text(color = brat_green),
+      axis.text = element_text(color = brat_green),
+      axis.title = element_text(color = brat_green, face = "bold"),
+      legend.background = element_rect(fill = brat_black),
+      legend.key = element_rect(fill = brat_black, color = NA),
+      legend.text = element_text(color = brat_green),
+      legend.title = element_text(color = brat_green, face = "bold")
+    )
+  
+  return(mouse_plot)
+}
+```
+
+### Song Key Legend
+
+```{r}
+#  data frame with the mapping ranges for the legend
+song_mapping <- data.frame(
+  song_number = 1:15,
+  range_text = c(
+    "0-6.2%", "6.2-12.4%", "12.4-18.6%", "18.6-24.8%", "24.8-31.0%",
+    "31.0-37.2%", "37.2-43.4%", "43.4-49.6%", "49.6-55.8%", "55.8-62.0%",
+    "62.0-68.2%", "68.2-74.4%", "74.4-80.6%", "80.6-86.8%", "86.8-100%"
+  ),
+  song_title = brat_tracks$title[1:15]
+)
+
+# Create the mapping key plot
+mapping_key <- ggplot(song_mapping, aes(x = 1, y = -song_number, fill = song_number)) +
+  geom_tile(width = 0.9, height = 0.9) +
+  scale_fill_gradient(low = brat_green, high = "#004000", guide = "none") +
+  geom_text(aes(label = paste0("Song ", song_number, ": ", song_title, " (", range_text, ")")), 
+            hjust = 0, x = 1.5, color = brat_green, fontface = "bold") +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = brat_black, color = NA),
+    panel.background = element_rect(fill = brat_black, color = NA)
+  ) +
+  xlim(0.5, 10) +
+  labs(title = "BRAT SONG MAPPING KEY",
+       subtitle = "Freezing percentage ranges mapped to song titles") +
+  theme(
+    plot.title = element_text(face = "bold", size = 14, color = brat_green, hjust = 0),
+    plot.subtitle = element_text(size = 10, color = brat_green, hjust = 0)
+  )
+
+# Display the mapping key
+print(mapping_key)
+
+# Save the mapping key
+ggsave("brat_mapping_key.png", mapping_key, width = 10, height = 8, dpi = 300, bg = brat_black)
+```
+
+### Plot for Mice 1-8
+
+#### Mouse 1
+
+```{r}
+# create the plot
+mouse1_plot <- create_mouse_plot(1, d)
+
+# Display the plot
+print(mouse1_plot)
+
+# Save the plot
+ggsave("mouse_1_brat.png", mouse1_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+```
+
+#### Mouse 2
+
+```{r}
+
+# Create the plot 
+mouse2_plot <- create_mouse_plot(2, d)
+
+# Display the plot
+print(mouse2_plot)
+
+# Save the plot
+ggsave("mouse_2_brat.png", mouse2_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+
+```
+
+#### Mouse 3
+
+```{r}
+# Create the plot 
+mouse3_plot <- create_mouse_plot(3, d)
+
+# Display the plot
+print(mouse3_plot)
+
+# Save the plot
+ggsave("mouse_3_brat.png", mouse3_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+
+```
+
+#### Mouse 4
+
+```{r}
+# Create the plot 
+mouse4_plot <- create_mouse_plot(4, d)
+
+# Display the plot
+print(mouse4_plot)
+
+# Save the plot
+ggsave("mouse_4_brat.png", mouse4_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+```
+
+#### Mouse 5
+
+```{r}
+# Create the plot
+mouse5_plot <- create_mouse_plot(5, d)
+
+# Display the plot
+print(mouse5_plot)
+
+# Save the plot
+ggsave("mouse_5_brat.png", mouse5_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+```
+
+#### Mouse 6
+
+```{r}
+# Create the plot 
+mouse6_plot <- create_mouse_plot(6, d)
+
+# Display the plot
+print(mouse6_plot)
+
+# Save the plot
+ggsave("mouse_6_brat.png", mouse6_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+```
+
+#### Mouse 7
+
+```{r}
+# Create the plot 
+mouse7_plot <- create_mouse_plot(7, d)
+
+# Display the plot
+print(mouse7_plot)
+
+# Save the plot
+ggsave("mouse_7_brat.png", mouse7_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+
+```
+
+#### Mouse 8
+
+```{r}
+# Create the plot f
+mouse8_plot <- create_mouse_plot(8, d)
+
+# Display the plot
+print(mouse8_plot)
+
+# Save the plot
+ggsave("mouse_8_brat.png", mouse8_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+
+```
+
+### Average Mean Plot
+
+```{r}
+# Calculate average freezing percentage by trial
+avg_data <- d %>%
+  group_by(Trial) %>%
+  summarize(
+    `Freezing %` = mean(`Freezing %`, na.rm = TRUE),
+    song_idx = mean(song_idx, na.rm = TRUE)
+  ) %>%
+  mutate(
+    song_representation = sapply(`Freezing %`, 
+                                map_freezing_to_songs_ranges, 
+                                track_list = brat_tracks)
+  )
+
+# Create the average plot
+avg_plot <- ggplot(avg_data, aes(x = Trial, y = `Freezing %`, fill = song_idx)) +
+  geom_bar(stat = "identity", width = 0.7, color = "#333333") +
+  scale_fill_gradient(low = brat_green, high = "#004000", 
+                     name = "Brat Track",
+                     breaks = 1:15,
+                     labels = paste0(1:15, ": ", brat_tracks$title[1:15]),
+                     guide = "none") +
+  geom_text(aes(label = song_representation, y = `Freezing %` + 2), 
+            size = 2.5, color = brat_green, fontface = "bold", 
+            angle = 45, hjust = 0, vjust = 0) +
+  geom_text(aes(label = paste0(round(`Freezing %`, 1), "%"), y = `Freezing %` / 2), 
+            size = 3, color = "white", fontface = "bold") +
+  labs(title = "AVERAGE FREEZING RESPONSE - FEAR EXTINCTION × BRAT",
+       subtitle = "Mean freezing % across all mice mapped to Charli XCX Brat tracks",
+       x = "Trial", 
+       y = "Freezing %") +
+  theme_minimal() +
+  ylim(0, 100) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, color = brat_green, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, color = brat_green, hjust = 0.5),
+    plot.background = element_rect(fill = brat_black, color = NA),
+    panel.background = element_rect(fill = brat_black, color = NA),
+    panel.grid.major = element_line(color = "#333333", size = 0.2),
+    panel.grid.minor = element_line(color = "#222222", size = 0.1),
+    text = element_text(color = brat_green),
+    axis.text = element_text(color = brat_green),
+    axis.title = element_text(color = brat_green, face = "bold"),
+    legend.background = element_rect(fill = brat_black),
+    legend.key = element_rect(fill = brat_black, color = NA),
+    legend.text = element_text(color = brat_green),
+    legend.title = element_text(color = brat_green, face = "bold")
+  )
+
+# Display the average plot
+print(avg_plot)
+
+# Save the average plot
+ggsave("average_freezing_brat.png", avg_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
+```
+
+## We can see that on average the % freezing starts higher around 35.7 % and ends with around  21.7% at the end this is very standard as you rarely go back to zero; there is plenty of individual differences, and we expect to see reduced % freezing the more trials there are! 
+
+Now, what I'd really like to do is play a 5-second snippet for each of the averaged trials. For example, Trial 1 would be 'Von Dutch,' playing for 5 seconds, then 'Rewind' for Trial 2, and so on. I would enjoy it since I’ve listened to the album a trillion times and have the order memorized, but I can't do that here on r so 'Se la vie.'
+
+\~\~\~\~\~\~\~\~\~\~ fin\~\~\~\~\~\~\~\~\~
