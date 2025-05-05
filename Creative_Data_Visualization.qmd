@@ -82,7 +82,7 @@ brat_tracks
 
 ## Input my data
 
-#### you may be curious what is my data what do I do? 
+#### you may be curious what is my data what do I do?
 
 I’m inputting behavioral data from mice, specifically focusing on fear extinction. My project examines how freezing behavior changes during fear conditioning and extinction learning.
 
@@ -430,8 +430,8 @@ print(avg_plot)
 ggsave("average_freezing_brat.png", avg_plot, width = 10, height = 6, dpi = 300, bg = brat_black)
 ```
 
-## We can see that on average the % freezing starts higher around 35.7 % and ends with around  21.7% at the end this is very standard as you rarely go back to zero; there is plenty of individual differences, and we expect to see reduced % freezing the more trials there are! 
+## We can see that on average the % freezing starts higher around 35.7 % and ends with around 21.7% at the end this is very standard as you rarely go back to zero; there is plenty of individual differences, and we expect to see reduced % freezing the more trials there are!
 
-Now, what I'd really like to do is play a 5-second snippet for each of the averaged trials. For example, Trial 1 would be 'Von Dutch,' playing for 5 seconds, then 'Rewind' for Trial 2, and so on. I would enjoy it since I’ve listened to the album a trillion times and have the order memorized, but I can't do that here on r so 'Se la vie.'
+Now, what I'd really like to do is play a 5-second snippet for each of the averaged trials. For example, Trial 1 would be 'Von Dutch,' playing for 5 seconds, then 'Rewind' for Trial 2, and so on. I would enjoy it since I’ve listened to the album a trillion times and have the order memorized, .... OH WAIT I DID !!!!
 
 \~\~\~\~\~\~\~\~\~\~ fin\~\~\~\~\~\~\~\~\~
